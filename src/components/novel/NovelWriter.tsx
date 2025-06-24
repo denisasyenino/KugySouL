@@ -333,15 +333,27 @@ Keep suggestions constructive and actionable:`,
   };
 
   const autoPilotWrite = async () => {
-    if (isGenerating || !currentProject || !currentChapter) return;
+    console.log('Auto-pilot write function called');
+    
+    if (!currentProject || !currentChapter) {
+      console.error('Auto-pilot aborted: No current project or chapter');
+      return;
+    }
+    
+    if (isGenerating) {
+      console.error('Auto-pilot aborted: Already generating content');
+      return;
+    }
     
     // Check if current chapter is complete (1800-2000 words)
     if (chapterWordCount >= 1800) {
+      console.log('Chapter is complete, creating new chapter');
       // Complete current chapter and create new one
       await completeCurrentChapter();
       return;
     }
     
+    console.log('Starting auto-pilot content generation');
     setIsGenerating(true);
     try {
       const languageInstruction = selectedLanguage === 'indonesian' 
@@ -422,6 +434,9 @@ Continue writing:`;
       
       // Show placeholder text immediately
       setEditorContent(placeholderText);
+      
+      // Force UI update by triggering a state change
+      setChapterWordCount(prev => prev);
 
       const response = await apiService.sendChatMessage({
         message: promptText,
@@ -433,9 +448,13 @@ Continue writing:`;
       const newContent = response.response || response.message || response.content || response.data || '';
       
       if (newContent && newContent.trim()) {
+        console.log('Received content from API, length:', newContent.length);
+        
         // Remove placeholder text and add the real content
         const contentWithoutPlaceholder = editorContent.replace(/\n\n\[AI is (writing the next section|starting to write Chapter \d+)\.\.\.\]$/, '');
         const updatedContent = contentWithoutPlaceholder ? contentWithoutPlaceholder + '\n\n' + newContent : newContent;
+        
+        console.log('Setting editor content with new text');
         setEditorContent(updatedContent);
         
         // Update word count
@@ -459,8 +478,10 @@ Continue writing:`;
       const contentWithoutPlaceholder = editorContent.replace(/\n\n\[AI is (writing the next section|starting to write Chapter \d+)\.\.\.\]$/, '');
       setEditorContent(contentWithoutPlaceholder);
       
-      stopAutoPilot();
+      // Don't stop auto-pilot on error, just log it
+      console.log('Error in auto-pilot, but continuing with next cycle');
     } finally {
+      console.log('Auto-pilot generation cycle completed');
       setIsGenerating(false);
     }
   };
@@ -531,7 +552,12 @@ Continue writing:`;
     
     // Set up interval for continuous writing
     const interval = setInterval(() => {
-      autoPilotWrite();
+      if (!isGenerating) {
+        console.log(`Auto-pilot triggered after ${autoPilotSpeed} seconds`);
+        autoPilotWrite();
+      } else {
+        console.log('Skipping auto-pilot cycle because generation is already in progress');
+      }
     }, autoPilotSpeed * 1000);
     
     setAutoPilotInterval(interval);
