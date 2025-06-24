@@ -413,6 +413,16 @@ Continue writing:`;
         }
       }
 
+      console.log('Sending request to API for auto-pilot writing...');
+      
+      // Placeholder text to show immediately while waiting for API response
+      const placeholderText = editorContent ? 
+        editorContent + '\n\n[AI is writing the next section...]' : 
+        '[AI is starting to write Chapter ' + (currentProject.currentChapterIndex + 1) + '...]';
+      
+      // Show placeholder text immediately
+      setEditorContent(placeholderText);
+
       const response = await apiService.sendChatMessage({
         message: promptText,
         model: selectedModel,
@@ -423,7 +433,9 @@ Continue writing:`;
       const newContent = response.response || response.message || response.content || response.data || '';
       
       if (newContent && newContent.trim()) {
-        const updatedContent = editorContent ? editorContent + '\n\n' + newContent : newContent;
+        // Remove placeholder text and add the real content
+        const contentWithoutPlaceholder = editorContent.replace(/\n\n\[AI is (writing the next section|starting to write Chapter \d+)\.\.\.\]$/, '');
+        const updatedContent = contentWithoutPlaceholder ? contentWithoutPlaceholder + '\n\n' + newContent : newContent;
         setEditorContent(updatedContent);
         
         // Update word count
@@ -434,9 +446,19 @@ Continue writing:`;
         saveCurrentChapter(updatedContent, newWordCount);
         
         console.log(`✅ Chapter ${currentProject.currentChapterIndex + 1}: ${newWordCount}/2000 words`);
+      } else {
+        // If no content was returned, remove the placeholder
+        const contentWithoutPlaceholder = editorContent.replace(/\n\n\[AI is (writing the next section|starting to write Chapter \d+)\.\.\.\]$/, '');
+        setEditorContent(contentWithoutPlaceholder);
+        console.error('No content was generated from the API');
       }
     } catch (error) {
       console.error('Auto-pilot writing failed:', error);
+      
+      // Remove placeholder text if there was an error
+      const contentWithoutPlaceholder = editorContent.replace(/\n\n\[AI is (writing the next section|starting to write Chapter \d+)\.\.\.\]$/, '');
+      setEditorContent(contentWithoutPlaceholder);
+      
       stopAutoPilot();
     } finally {
       setIsGenerating(false);
